@@ -2,7 +2,11 @@
 title: "HW3_yc4384_Cynthia"
 author: "Yangyang Chen"
 date: "`r Sys.Date()`"
-output: pdf_document
+output: 
+  pdf_document:
+    keep_tex: true
+header-includes:
+  - \usepackage{booktabs}
 ---
 
 ```{r setup, include=FALSE}
@@ -65,9 +69,30 @@ dev_m0 = residuals(M_0, type = "deviance")^2 |> sum()
 
 M_1 = glm(resp ~ alc + grp1 + grp2 + grp3 + grp4 + grp5 + grp6, family = binomial(link = 'logit'))
 summary(M_1)
-dev_m2 = residuals(M_1, type = "deviance")^2 |> sum()
-```
 
+# Define the data
+Model <- c("$M_0$", "$M_1$")
+Linear_predictor <- c("$\\alpha_j$", "$\\alpha_j + \\beta X$")
+Deviance <- c(90.56, 11.04)
+df <- c(6, 5)
+
+# Create a data frame
+outp <- data.frame(Model, Linear_predictor, Deviance, df, stringsAsFactors = FALSE)
+
+# Set column names
+colnames(outp) <- c("Model", "Linear Predictor", "Deviance", "df")
+
+# Print the data frame using knitr::kable() with format = "latex" and escape = FALSE
+
+knitr::kable(outp, format = "latex", escape = FALSE, align = "c", booktabs = TRUE)
+```
+Hypothesis Testing:
+
+$$H_0: \beta_{alc}=0 \\ \ H_1:\beta_{alc} \ne 0 $$
+$$stat = 79.52 \sim \chi^2_{1}$$
+$$p-value <0.0001$$
+
+Hence, we reject the null hypothesis and we have sufficient evidence to conlcude that there's an significant association between disease and alcohol consumption.
 
 ## Problem 2
 
@@ -75,11 +100,12 @@ dev_m2 = residuals(M_1, type = "deviance")^2 |> sum()
 
 Let $Y_i$ denote the number of seeds germinates among $m_i$ seeds with the $ith$ covariate pattern. The logistic regression model:
 
-$$log(\frac{\pi}{1-\pi}) = \beta_1+\beta_2x_i;$$
-$$Y_i \sim Bin(n_i, \pi_i), \ i = 1,...,m,$$
+$$log(\frac{\pi}{1-\pi}) = \beta_0 + \beta_1X_{seed}+\beta_2X_{root};$$
+
 ```{r}
 # input data
-x=c(rep(0,10),rep(1,11))
+x=c(rep(1,10),rep(0,11)) # roots category
+z=c(rep(1,5), rep(0,6), rep(1,5), rep(0,5)) # seeds category
 y=c(10,23,23,26,17,8,10,8,23,0,5,53,55,32,46,10,3,22,15,32,3) # survive=1
 m=c(39,62,81,51,39,16,30,28,45,4,6,74,72,51,79,13,12,41,30,51,7)
 data=data.frame(x,y,m)
@@ -88,23 +114,39 @@ plot(y,m)
 summary(m-y) ## m >= y
 
 # fit binomial (logistic) without dispersion
-none.disp=glm(cbind(y,m-y)~x, family=binomial(link='logit'))
+none.disp=glm(cbind(y,m-y)~x+z, family=binomial(link='logit'))
 summary(none.disp)
 G.stat=sum(residuals(none.disp,type='pearson')^2) # pearson chisq 
 G.stat
 ```
 The binomial logistic without dispersion was fitted with the following results:
 
-$$b_1 = -0.5122,\ standard \ error(b_1) = 0.1039;$$
-$$b_2 = 1.0574,\ standard \ error(b_2) = 0.1438;$$
-$$Pearson-\chi^2 statistic: X^2 = \sum X_i^2 = 41.226 \ and\ Deviance \ D = \sum d_i^2 = 42.751.$$
+$$log(\frac{\pi}{1-\pi}) = 0.3884 - 1.0668*X_{root}+0.2391*X_{seed}$$
+
+Interpretation:
+ 
+ $$\hat{b_0} = 0.3884,\ standard \ error(b_0) = 0.1410;$$
+ 
+* The log odds ratio of a O.aegyptiaca 73 seed grown in cucumber extract for germinating is 0.38.
+
+$$\hat{b_1} = 0.2391,\ standard \ error(b_1) = 0.1538;$$
+
+* The estimated log odds ratio for comparing O.aegyptiaca 75 seeds and O.aegyptiaca 73 seeds, holding root extract fixed is 0.2391.
+
+$$\hat{b_2} = -1.0668,\ standard \ error(b_2) = 0.1442;$$
+
+* The estimated odds ratio for comparing bean and cucumber extract amongst O.aegyptiaca 73 seeds, holding seed species fixed is -1.0668.
+
+
+$$Pearson-\chi^2 statistic: X^2 = \sum X_i^2 = 41.226 \ and\ Deviance \ D = \sum d_i^2 = 40.328.$$
 
 ```{r}
 # goodness of fit
 pval=1-pchisq(none.disp$deviance,21-3) 
 pval # bad fit, reject the fitting
 ```
-Comparing $X^2$ and $D$ with $\chi^2(19)$, we concluded that the model appears to fit bad.
+* Comparing $X^2$ and $D$ with $\chi^2(18)$, we concluded that the model appears to fit bad.
+
 
 ### (b) Is there over dispersion? If so, what is the estimate of dispersion parameter? Update your model and reinterpret the result.
 
@@ -112,8 +154,7 @@ Estimating the dispersion parameter by following two methods:
 
 First,$$\hat{\phi} = G_0/(n-p),$$
 where $$G_0 = \sum_{i=1}^{n}{\frac{(y_i-m_i \hat{\pi_i})^2}{m_i\hat{\pi_i}(1-\hat{\pi_i})\phi}} \sim \chi^2(n-p)\ $$
-is the generalized Pearson $\chi^2$ from the original model fitting without
-over-dispersion.
+is the generalized Pearson $\chi^2$ from the original model fitting without over-dispersion.
 
 Second, $$\hat{\phi} = \frac{D_0}{n-p}$$
 ```{r}
@@ -133,20 +174,24 @@ abline(a=0,b=1)
 abline(a=0,b=sqrt(phi),lty=2, col = 'red')
 ```
 
-Therefore, there exists over-dispersion in our model and the estimate of dispersion parameter: $\hat{\phi} = 2.1697$. 
+* Therefore, there exists over-dispersion in our model and the estimate of dispersion parameter: $\hat{\phi} = 2.1697$. 
 
-Next, we updated regression model.
+* Half-normal plot using residuals
+from this model shows evidence of over-dispersion.
+
+* Next, we updated regression model.
 
 ```{r}
 # fit model with constant over-dispersion
 summary(none.disp,dispersion=phi)
 ```
 The binomial logistic with dispersion was fitted with the following results:
-
-$$b_1 = -0.5122,\ standard \ error(b_1) = 0.1531;$$
-$$b_2 = 1.0574,\ standard \ error(b_2) = 0.2118;$$
-$$Pearson-\chi^2 statistic: X^2 = \sum X_i^2 = 41.226 \ and\ Deviance \ D = \sum d_i^2 = 42.751.$$
+$$b_0 = 0.3884,\ standard \ error(b_1) = 0.2071;$$
+$$b_1 = -1.0668,\ standard \ error(b_1) = 0.2119;$$
+$$b_2 = 0.2391,\ standard \ error(b_2) = 0.2259;$$
+$$Pearson-\chi^2 statistic: X^2 = \sum X_i^2 = 41.226 \ and\ Deviance \ D = \sum d_i^2 = 40.328.$$
 
 ### (c) What is a plausible cause of the over dispersion?
 
+Since different groups may have different germination rate which follow the same distribution, the response variables should follows a beta-binomial distribution rather than binomial distribution.
 
